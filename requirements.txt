@@ -1,0 +1,5 @@
+openai
+dotenv
+PySide6
+PyPDF2
+transformers

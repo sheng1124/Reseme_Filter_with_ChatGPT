@@ -4,14 +4,10 @@ import shutil
 import time
 
 from dotenv import load_dotenv
-import numpy as np
 import PySide6.QtWidgets as QtWidgets
 import PySide6.QtCore as QtCore
-import PySide6.QtGui as QtGui
-import PySide6.QtMultimedia as QtMultimedia
 import PyPDF2
 from transformers import GPT2TokenizerFast
-from transformers import BartForConditionalGeneration, BartTokenizer
 import openai
 
 load_dotenv('.env')
