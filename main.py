@@ -14,17 +14,9 @@ from transformers import GPT2TokenizerFast
 from transformers import BartForConditionalGeneration, BartTokenizer
 import openai
 
-
-
 load_dotenv('.env')
-API_KEY = os.getenv('OPENAI_API')
-SYSTEM_PROMPT = "我想讓你扮演一個科技公司的HR，目前正在招募儲能數據分析工程師，以下是儲能數據分析工程師的應徵條件:1. 碩士以上，數學/資工/統計等熟悉結構化資料分析之演算法的相關科系，並具儲能系統知識背景為佳，2. 具備2年以上資料處理/數據分析或其他專案工作經驗，3. 熟悉數據分析程式或工具(Python、R、SAS、SPSS等)，熟Python尤佳，4. 熟悉資料庫(MS-SQL、Oracle等)，熟MongoDB尤佳，5. 熟悉至少一種機器學習或資料分析工具或套件與模型建置基礎流程Scikit-learn、Keras、TensorFlow、PyTorch，6. 具基礎智慧電網、電力市場、充電樁營運、能源最佳化運算等領域知識尤佳。職務工作內容:1. 對各儲能案場收集之數據，進行數據分析與模型架構研究，2. 彙整、分析與定期產出各類型的監測資料或報告，3. 數據預處理、特徵工程、模型選擇/融合、模型訓練/測試、數據問題分析及解決、模型評估的程式開發，4. 機器學習、深度學習或其他相關演算法開發，5. 由數據角度協助儲能系統設計與建置，優化儲能系統效能。我會給你應徵者的履歷，你要判斷應徵者有幾項符合上述的應徵條件，那些不符合，並給予分析，你的回應必須遵守以下規則，1. 不能出現應徵者的姓名、暱稱。"
-MODEL_1 = 'gpt-3.5-turbo'
-FT_MODEL_1 = 'curie:ft-personal-2023-04-03-03-35-54'
 SYSTEM_PROMPT_TEMPLATE = "我想讓你扮演一個科技公司的HR，目前正在招募#####，以下是#####的應徵條件:@@@@@。我會給你應徵者的履歷，你要對應徵者和每一項應徵條件打分數(滿分10分)，你要用最高的標準來判斷，若不符合條件應該給予0分，例如:最高學歷雖然是碩士畢業，但是不符合要求的科系應該給予0分，最後並給予評語。你的回應必須遵守以下規則，1. 不能出現應徵者的姓名、暱稱 2.省略應徵條件內容，以'條件x:'替代。"
-RESTR = "1. 碩士以上，數學/資工/統計等熟悉結構化資料分析之演算法的相關科系，並具儲能系統知識背景為佳，2. 具備2年以上資料處理/數據分析或其他專案工作經驗，3. 熟悉數據分析程式或工具(Python、R、SAS、SPSS等)，熟Python尤佳，4. 熟悉資料庫(MS-SQL、Oracle等)，熟MongoDB尤佳，5. 熟悉至少一種機器學習或資料分析工具或套件與模型建置基礎流程Scikit-learn、Keras、TensorFlow、PyTorch，6. 具基礎智慧電網、電力市場、充電樁營運、能源最佳化運算等領域知識尤佳。職務工作內容:1. 對各儲能案場收集之數據，進行數據分析與模型架構研究，2. 彙整、分析與定期產出各類型的監測資料或報告，3. 數據預處理、特徵工程、模型選擇/融合、模型訓練/測試、數據問題分析及解決、模型評估的程式開發，4. 機器學習、深度學習或其他相關演算法開發，5. 由數據角度協助儲能系統設計與建置，優化儲能系統效能"
 TOKENIZER = GPT2TokenizerFast.from_pretrained('gpt2', return_attention_mask = False)
-
 
 def pdf2str(pdf_filepath:str):
     reader = PyPDF2.PdfReader(pdf_filepath)
@@ -65,12 +57,41 @@ def reduce_tokens(text, target):
     # Decode the truncated tokens back to text
     truncated_text = TOKENIZER.decode(truncated_tokens)
 
-    f = open('eee.txt', 'w', encoding= 'utf-8')
-    f.write(truncated_text)
-    f.close()
-
     return truncated_text
 
+class DemoReviwer:
+    def __init__(self, data=[]):
+        self.data = data
+        self.current_index = 0
+        self.update_attributes()
+
+    def update_attributes(self):
+        if not len(self.data):
+            return
+        for key, value in self.data[self.current_index].items():
+            setattr(self, key, value)
+
+    def next(self):
+        if self.current_index < len(self.data) - 1:
+            self.current_index += 1
+            self.update_attributes()
+        else:
+            self.current_index = 0
+            self.update_attributes()
+
+    def prev(self):
+        if self.current_index > 0:
+            self.current_index -= 1
+            self.update_attributes()
+        else:
+            self.current_index = len(self.data) - 1
+            self.update_attributes()
+    
+    def append(self, new_data:dict):
+        if isinstance(new_data, dict):
+            self.data.append(new_data)
+        else:
+            print("Invalid data format. Please provide a dictionary.")
 
 class BasicUI(QtWidgets.QMainWindow):
     openai_api_key = os.getenv('OPENAI_API')
@@ -85,6 +106,7 @@ class BasicUI(QtWidgets.QMainWindow):
         line.setAlignment(QtCore.Qt.AlignLeft)
         line.addWidget(QtWidgets.QLabel(f'{"輸入 OpenAI API key:":<35}'))
         input_openai_api_key_edit = QtWidgets.QLineEdit(self.openai_api_key)
+        input_openai_api_key_edit.setEchoMode(QtWidgets.QLineEdit.Password)
         line.addWidget(input_openai_api_key_edit)
         layout1.addItem(line)
 
@@ -244,6 +266,7 @@ class FilterUI(BasicUI):
         super().__init__(parent)
         main_layout = QtWidgets.QVBoxLayout()
         main_layout.setAlignment(QtCore.Qt.AlignTop)
+        self.demo_reviwer = DemoReviwer()
 
         # 參數設定
         cfg_input_dict, input_cfg_box = self.create_cfg_input()
@@ -266,14 +289,36 @@ class FilterUI(BasicUI):
         self.bar, bar_box = self.create_bar()
         main_layout.addWidget(bar_box)
 
-        # 文件預覽
+        # 文件+分析預覽
+        self.reseme_name_label, self.reseme_widget, self.classification_label, self.alz_content_widget, demo_window = self.create_demo_windows()
+        main_layout.addWidget(demo_window)
         
-
-
         # layout
         main_ui = QtWidgets.QWidget()
         main_ui.setLayout(main_layout)
         self.setCentralWidget(main_ui)
+
+    def check_input(self):
+        # test api key
+        try:
+            openai.FineTune.list(api_key=self.openai_api_key)
+        except Exception:
+            QtWidgets.QMessageBox.warning(self, "apikey 錯誤", "請檢查 apikey 是否可用") 
+            return False
+        if self.cf_model_combo.count() == 0:
+            QtWidgets.QMessageBox.warning(self, "微調模型錯誤", "請刷新或訓練可用的微調模型") 
+            return False
+        if self.input_vancancies_edit.text() == '':
+            QtWidgets.QMessageBox.warning(self, "職缺輸入錯誤", "請輸入正確的職缺名稱") 
+            return False
+        if self.input_van_condition_edit.text() == '':
+            QtWidgets.QMessageBox.warning(self, "職缺條件輸入錯誤", "請輸入正確的職缺條件") 
+            return False
+        if not os.path.isdir(self.input_folder_edit.text()):
+            QtWidgets.QMessageBox.warning(self, "輸入資料夾錯誤", "請輸入正確的資料夾路徑")
+            return False
+         
+        return True
 
     @QtCore.Slot()
     def filter_finish(self):
@@ -282,6 +327,8 @@ class FilterUI(BasicUI):
     @QtCore.Slot()
     def send2filter(self):
         self.update_input_cfg()
+        if not self.check_input():
+            return
         system_prompt =  SYSTEM_PROMPT_TEMPLATE.replace('#####', self.vancancies).replace('@@@@@', self.van_condition)
         cfg = self.get_input_cfg()
         cfg['system_prompt'] = system_prompt
@@ -289,6 +336,7 @@ class FilterUI(BasicUI):
         self.filter_start = FilterThread(cfg)
         self.filter_start.update_bar.connect(self.set_bar_value)
         self.filter_start.finished.connect(self.filter_finish)
+        self.filter_start.update_demo_windows.connect(self.demo_reviwer_append)
 
         self.filter_btn.setEnabled(False)
         self.filter_start.start()
@@ -299,49 +347,78 @@ class FilterUI(BasicUI):
         filter_box.setLayout(line)
         return filter_btn, filter_box
 
-    def create_pdf_viewer(self):
-        pass
+    def create_demo_windows(self):
+        box = QtWidgets.QGroupBox()
+        layout2 = QtWidgets.QHBoxLayout()
+        layout1 = QtWidgets.QVBoxLayout()
+        layout1.setAlignment(QtCore.Qt.AlignTop)
+        line = QtWidgets.QHBoxLayout()
+        line.setAlignment(QtCore.Qt.AlignLeft)
+        line.addWidget(QtWidgets.QLabel(f'{"履歷路徑:":<10}'))
+        reseme_name_label = QtWidgets.QLineEdit()
+        reseme_name_label.setReadOnly(True)
+        line.addWidget(reseme_name_label)
+        layout1.addItem(line)
+        line = QtWidgets.QHBoxLayout()
+        reseme_widget = QtWidgets.QPlainTextEdit()
+        reseme_widget.setReadOnly(True)
+        line.addWidget(reseme_widget)
+        layout1.addItem(line)
+        layout2.addItem(layout1)
+
+        layout1 = QtWidgets.QVBoxLayout()
+        layout1.setAlignment(QtCore.Qt.AlignTop)
+        line = QtWidgets.QHBoxLayout()
+        line.setAlignment(QtCore.Qt.AlignLeft)
+        prev_btn, _ = self.create_btn('上一個', self.reviewr_prev)
+        line.addWidget(prev_btn)
+        next_btn, _ = self.create_btn('下一個', self.reviewr_next)
+        line.addWidget(next_btn)
+        line.addWidget(QtWidgets.QLabel(f'{"分析結果:":<10}'))
+        classification_label = QtWidgets.QLabel()
+        line.addWidget(classification_label)
+        layout1.addItem(line)
+        line = QtWidgets.QHBoxLayout()
+        alz_content_widget = QtWidgets.QPlainTextEdit()
+        alz_content_widget.setReadOnly(True)
+        line.addWidget(alz_content_widget)
+        layout1.addItem(line)
+        layout2.addItem(layout1)
+
+        box.setLayout(layout2)
+
+        return reseme_name_label, reseme_widget, classification_label, alz_content_widget, box
     
+    @QtCore.Slot(list)
+    def demo_reviwer_append(self, alz_result):
+        pdf, reseme, classification, content = alz_result
+        data = {
+            'pdf':pdf,
+            'reseme':reseme,
+            'classification':classification,
+            'content':content
+        }
+        self.demo_reviwer.append(data)
+        self.reviewr_next()
         
-    def batch_pdf2txt(self):
-        self.update_bar.emit(0)
-        # 讀取所有在 input 資料夾下的 pdf 檔
-        pdf_list = os.listdir(self.input_folder_edit.text())
-        count = 0
-        for pdf in pdf_list:
-            if pdf[-4:] != '.pdf':
-                continue
-            src = os.path.join(self.input_folder_edit.text(), pdf)
-            s = self.pdf2str(src)
+    @QtCore.Slot()
+    def reviewr_next(self):
+        self.demo_reviwer.next()
+        self.set_demo_windows()
 
-            _, k = self.less_tokens(SYSTEM_PROMPT, s)
+    @QtCore.Slot()
+    def reviewr_prev(self):
+        self.demo_reviwer.prev()
+        self.set_demo_windows()
 
-            txt_file = src[:-4] + '.txt'
-            with open(txt_file, '+w', encoding='utf-8') as f:
-                f.write(s)
-
-            count+=1
-            self.update_bar.emit(int(count*100/len(pdf_list)))
-
-    def batch_rename(self):
-        # 讀取所有在 input 資料夾下的 pdf 檔
-        pdf_list = os.listdir(self.input_folder_edit.text())
-        for pdf in pdf_list:
-            if pdf[-4:] != '.pdf':
-                continue
-            src = os.path.join(self.input_folder_edit.text(), pdf)
-            dst = os.path.join(self.input_folder_edit.text(), 'xxxxx' + pdf)
-            os.rename(src, dst)
-        
-        pdf_list = os.listdir(self.input_folder_edit.text())
-        pdf_list = sorted(pdf_list, key=lambda _ :np.random.randint(10 * len(pdf_list)))
-        print(pdf_list)
-        for i, pdf in enumerate(pdf_list):
-            if pdf[-4:] != '.pdf':
-                continue
-            src = os.path.join(self.input_folder_edit.text(), pdf)
-            dst = os.path.join(self.input_folder_edit.text(), f'{i}.pdf')
-            os.rename(src, dst)
+    def set_demo_windows(self):
+        try:
+            self.reseme_name_label.setText(self.demo_reviwer.pdf)
+            self.reseme_widget.setPlainText(self.demo_reviwer.reseme)
+            self.classification_label.setText(self.demo_reviwer.classification)
+            self.alz_content_widget.setPlainText(self.demo_reviwer.content)
+        except Exception as e:
+            pass
 
 class BasicThread(QtCore.QThread):
     update_bar = QtCore.Signal(int)
@@ -392,18 +469,45 @@ class BasicThread(QtCore.QThread):
         print(response)
         return response
 
+    # 不呼叫openai 僅測試系統流程架構合不合理
+    def api_reference_debug(self, reseme:str):
+        rs_list = ['accept.', 'reject.']
+        response = {
+            "id":"chatcmpl-abc123",
+            "object":"chat.completion",
+            "created":1677858242,
+            "model":"gpt-3.5-turbo-0301",
+            "usage":{
+                "prompt_tokens":13,
+                "completion_tokens":7,
+                "total_tokens":20
+            },
+            "choices":[
+                {
+                    "message":{
+                        "role":"assistant",
+                        "content": "test api result"
+                    },
+                    "finish_reason":"stop",
+                    "text": rs_list[len(reseme) % 2],
+                    "index":0
+                }
+            ]
+            }
+        return response
 
 class FilterThread(BasicThread):
+    update_demo_windows =  QtCore.Signal(list)
     def __init__(self, cfg, parent=None) -> None:
         super().__init__(cfg, parent)
         self.input_folder = cfg['input_folder']
-
 
     def run(self):
         self.update_bar.emit(0)
         # 讀取所有在 input 資料夾下的 pdf 檔
         pdf_list = self.get_pdf_list(self.input_folder)
         count = 0
+        results_folder = os.path.join('results', self.start_time)
         for pdf in pdf_list:
             src = os.path.join(self.input_folder, pdf)
             reseme = pdf2str(src)
@@ -412,11 +516,13 @@ class FilterThread(BasicThread):
             # step 1 取得履歷分析
             content, classification = '', ''
             response = self.inference_reseme(reseme_k)
+            #response = self.api_reference_debug(reseme_k)
             if not response is None:
                 content = response['choices'][0]['message']['content'] + '->'
 
                 # step 2 把分析結果給微調模型分類
                 response = self.anlysis_classification(content)
+                #response = self.api_reference_debug(reseme_k)
                 if not response is None:
                     classification = response['choices'][0]['text']
             
@@ -426,11 +532,14 @@ class FilterThread(BasicThread):
             
             # 將pdf以分類結果複製到對應的資料夾
             if 'accept' in classification:
-                output_folder = 'results/accept'
+                output_folder = os.path.join(results_folder, 'accept')
+                classification = 'accept'
             elif 'reject' in classification:
-                output_folder = 'results/reject'
+                output_folder = os.path.join(results_folder, 'reject')
+                classification = 'reject'
             else:
-                output_folder = 'results/noresponse'
+                output_folder = os.path.join(results_folder, 'noresponse')
+                classification = 'noresponse'
 
             if not os.path.isdir(output_folder):
                 os.makedirs(output_folder)
@@ -440,13 +549,17 @@ class FilterThread(BasicThread):
 
             # 儲存分析結果
             if not content:
-                #return reseme, content
+                content=["open ai 沒有回應或履歷分析失敗"]
+                self.update_demo_windows.emit([pdf, reseme, content, classification])
                 continue
+            fname = time.strftime(f'{pdf[:-4]}_response_%Y-%m-%d-%H-%M-%S.txt')
 
-            newfile_response = os.path.join(output_folder, f'{pdf[:-4]}_response.txt')
+            newfile_response = os.path.join(output_folder, fname)
             
             with open(newfile_response, 'w', encoding='utf-8') as outfile:
                 outfile.write(content)
+            
+            self.update_demo_windows.emit([src, reseme, classification, content])
 
     # 使用 openai 分析履歷後的資料做分類
     def anlysis_classification(self, content:str):
